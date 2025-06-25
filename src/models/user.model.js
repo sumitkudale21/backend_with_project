@@ -1,6 +1,9 @@
 import mongoose, { Schema } from "mongoose";
-import User from "src/models/user.model.js";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 
+const ACCESS_TOKEN_EXPIRY = "1h";
+const REFRESH_TOKEN_EXPIRY = "7d";
 
 const userSchema = new Schema(
   {
@@ -26,11 +29,11 @@ const userSchema = new Schema(
       index: true,
     },
     avatar: {
-      type: String, // URL to the avatar image cloudinary
+      type: String,
       required: true,
     },
     coverImage: {
-      type: String, // URL to the cover image cloudinary
+      type: String,
       required: true,
     },
     watchHistory: [
@@ -50,6 +53,7 @@ const userSchema = new Schema(
   { timestamps: true }
 );
 
+// Hash password before saving
 userSchema.pre("save", async function (next) {
   if (this.isModified("password")) {
     const salt = await bcrypt.genSalt(10);
@@ -58,10 +62,12 @@ userSchema.pre("save", async function (next) {
   next();
 });
 
+// Method to compare password
 userSchema.methods.isPasswordCorrect = async function (password) {
   return await bcrypt.compare(password, this.password);
 };
 
+// Method to generate access token
 userSchema.methods.generateAccessToken = function () {
   const token = jwt.sign(
     {
@@ -71,22 +77,17 @@ userSchema.methods.generateAccessToken = function () {
       fullname: this.fullname,
     },
     process.env.ACCESS_TOKEN_SECRET,
-    {
-      expiresIn: ACCESS_TOKEN_EXPIRY,
-    }
+    { expiresIn: ACCESS_TOKEN_EXPIRY }
   );
   return token;
 };
 
+// Method to generate refresh token
 userSchema.methods.generateRefreshToken = function () {
   const refreshToken = jwt.sign(
-    {
-      _id: this._id
-    },
+    { _id: this._id },
     process.env.REFRESH_TOKEN_SECRET,
-    {
-      expiresIn: REFRESH_TOKEN_EXPIRY,
-    }
+    { expiresIn: REFRESH_TOKEN_EXPIRY }
   );
   return refreshToken;
 };
